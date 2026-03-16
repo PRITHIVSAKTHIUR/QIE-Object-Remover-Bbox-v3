@@ -831,6 +831,7 @@ function initCanvasBbox() {
 
     const btnDraw    = document.getElementById('tb-draw');
     const btnSelect  = document.getElementById('tb-select');
+    const btnReset   = document.getElementById('tb-reset');
     const btnDel     = document.getElementById('tb-del');
     const btnUndo    = document.getElementById('tb-undo');
     const btnClear   = document.getElementById('tb-clear');
@@ -946,6 +947,24 @@ function initCanvasBbox() {
         if (promptInput) {
             setGradioValue('prompt-gradio-input', promptInput.value);
         }
+    }
+
+    function resetCanvas() {
+        baseImg = null;
+        boxes.length = 0;
+        window.__bboxBoxes = boxes;
+        selectedIdx = -1;
+        dragging = false;
+        dragType = null;
+        dragOrig = null;
+        fitSize(512, 400);
+        syncToGradio();
+        syncImageToGradio('');
+        redraw();
+        hideStatus();
+        uploadPrompt.style.display = '';
+        showStatus('Image removed');
+        setTimeout(hideStatus, 1500);
     }
 
     function redraw(tempRect) {
@@ -1244,6 +1263,10 @@ function initCanvasBbox() {
 
     btnDraw.addEventListener('click',   ()=>setMode('draw'));
     btnSelect.addEventListener('click', ()=>setMode('select'));
+
+    btnReset.addEventListener('click', () => {
+        resetCanvas();
+    });
 
     btnDel.addEventListener('click', () => {
         if (selectedIdx >= 0 && selectedIdx < boxes.length) {
@@ -1576,6 +1599,9 @@ with gr.Blocks() as demo:
             <button id="tb-select" class="modern-tb-btn" title="Select, move, resize boxes">
                 <span class="tb-icon">⇉</span><span class="tb-label">Select</span>
             </button>
+            <button id="tb-reset" class="modern-tb-btn" title="Reset canvas and remove image">
+                <span class="tb-icon">⟲</span><span class="tb-label">Reset</span>
+            </button>
             <div class="tb-sep"></div>
             <button id="tb-del" class="modern-tb-btn" title="Delete selected box">
                 <span class="tb-icon">✕</span><span class="tb-label">Delete</span>
@@ -1604,8 +1630,6 @@ with gr.Blocks() as demo:
                                 <rect x="8" y="14" width="64" height="52" rx="6" fill="none" stroke="#6366f1" stroke-width="2" stroke-dasharray="4 3"/>
                                 <polygon points="12,62 30,40 42,50 54,34 68,62" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="1.5"/>
                                 <circle cx="28" cy="30" r="6" fill="rgba(99,102,241,0.2)" stroke="#6366f1" stroke-width="1.5"/>
-                                <line x1="40" y1="4" x2="40" y2="16" stroke="#818cf8" stroke-width="2" stroke-linecap="round"/>
-                                <line x1="34" y1="10" x2="46" y2="10" stroke="#818cf8" stroke-width="2" stroke-linecap="round"/>
                             </svg>
                         </div>
                     </div>
@@ -1619,7 +1643,8 @@ with gr.Blocks() as demo:
                     <b>Draw:</b> Click &amp; drag to create selection boxes &nbsp;·&nbsp;
                     <b>Select:</b> Click a box to move or resize &nbsp;·&nbsp;
                     <kbd>Delete</kbd> removes selected &nbsp;·&nbsp;
-                    <kbd>Clear</kbd> removes all
+                    <kbd>Clear</kbd> removes all &nbsp;·&nbsp;
+                    <kbd>Reset</kbd> removes image
                 </div>
 
                 <div class="json-panel">
