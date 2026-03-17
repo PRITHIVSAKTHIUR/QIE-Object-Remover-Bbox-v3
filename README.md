@@ -2,6 +2,8 @@
 
 QIE-Object-Remover-Bbox-v3 is a highly advanced application for targeted object removal in images using bounding boxes. Built on the Gradio interface and powered by the latest Qwen Image Edit models, this tool allows users to draw a bounding box over an object in an image and seamlessly remove it.
 
+<img width="1876" height="2376" alt="Screenshot 2026-03-17 at 20-42-04 QIE Object Remover Bbox - a Hugging Face Space by prithivMLmods" src="https://github.com/user-attachments/assets/b2e2224a-a001-4fe2-b03f-7bfd9c581c15" />
+
 ## Overview
 
 This application leverages the Diffusers library, the `Qwen/Qwen-Image-Edit-2509` base model, and a custom transformer adapter (`prithivMLmods/Qwen-Image-Edit-Rapid-AIO-V4`). It also supports Flash Attention 3 to improve computational efficiency. 
