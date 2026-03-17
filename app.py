@@ -32,7 +32,7 @@ except Exception as e:
     print(f"Warning: Could not set FA3 processor: {e}")
 
 ADAPTER_SPECS = {
-"Object-Remover": {
+    "Object-Remover": {
         "repo": "prithivMLmods/QIE-2509-Object-Remover-Bbox-v3",
         "weights": "QIE-2509-Object-Remover-Bbox-v3-10000.safetensors",
         "adapter_name": "object-remover",
@@ -109,7 +109,7 @@ def infer_object_removal(
         loaded = True
 
     if not prompt or prompt.strip() == "":
-        prompt = DEFAULT_PROMPT
+        raise gr.Error("Please enter an edit prompt.")
 
     source_image = b64_to_pil(b64_str)
     if source_image is None:
@@ -502,6 +502,59 @@ footer{display:none!important}
     box-shadow:0 0 0 3px rgba(99,102,241,.15);
 }
 .modern-textarea::placeholder{color:#3f3f46}
+.modern-textarea.error-flash{
+    border-color:#ef4444!important;
+    box-shadow:0 0 0 3px rgba(239,68,68,.2)!important;
+    animation:shake .4s ease;
+}
+@keyframes shake{
+    0%,100%{transform:translateX(0)}
+    20%,60%{transform:translateX(-4px)}
+    40%,80%{transform:translateX(4px)}
+}
+
+/* ── Toast Notification ── */
+.toast-notification{
+    position:fixed;
+    top:24px;
+    left:50%;
+    transform:translateX(-50%) translateY(-120%);
+    z-index:9999;
+    padding:10px 24px;
+    border-radius:10px;
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);
+    transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .35s ease;
+    opacity:0;
+    pointer-events:none;
+}
+.toast-notification.visible{
+    transform:translateX(-50%) translateY(0);
+    opacity:1;
+    pointer-events:auto;
+}
+.toast-notification.error{
+    background:linear-gradient(135deg,#dc2626,#b91c1c);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.15);
+}
+.toast-notification.warning{
+    background:linear-gradient(135deg,#d97706,#b45309);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.15);
+}
+.toast-notification.info{
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.15);
+}
+.toast-notification .toast-icon{font-size:16px;line-height:1}
+.toast-notification .toast-text{line-height:1.3}
 
 /* ── Primary Button ── */
 .btn-run{
@@ -840,6 +893,7 @@ function initCanvasBbox() {
     const uploadPrompt    = document.getElementById('upload-prompt');
     const uploadClickArea = document.getElementById('upload-click-area');
     const fileInput       = document.getElementById('custom-file-input');
+    const promptInput     = document.getElementById('custom-prompt-input');
 
     if (!canvas || !wrap || !debugCount || !btnDraw || !fileInput) {
         setTimeout(initCanvasBbox, 250);
@@ -865,6 +919,38 @@ function initCanvasBbox() {
     const RED_STROKE = 'rgba(239,68,68,0.95)';
     const RED_STROKE_WIDTH = 2;
     const SEL_STROKE = 'rgba(99,102,241,0.95)';
+
+    let toastTimer = null;
+
+    function showToast(message, type) {
+        let toast = document.getElementById('app-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'app-toast';
+            toast.className = 'toast-notification';
+            toast.innerHTML = '<span class="toast-icon"></span><span class="toast-text"></span>';
+            document.body.appendChild(toast);
+        }
+        const icon = toast.querySelector('.toast-icon');
+        const text = toast.querySelector('.toast-text');
+        toast.className = 'toast-notification ' + (type || 'error');
+        if (type === 'warning') icon.textContent = '\u26A0';
+        else if (type === 'info') icon.textContent = '\u2139';
+        else icon.textContent = '\u2717';
+        text.textContent = message;
+        if (toastTimer) clearTimeout(toastTimer);
+        void toast.offsetWidth;
+        toast.classList.add('visible');
+        toastTimer = setTimeout(() => toast.classList.remove('visible'), 3500);
+    }
+    window.__showToast = showToast;
+
+    function flashPromptError() {
+        if (!promptInput) return;
+        promptInput.classList.add('error-flash');
+        promptInput.focus();
+        setTimeout(() => promptInput.classList.remove('error-flash'), 800);
+    }
 
     function n2px(b) { return {x1:b.x1*dispW, y1:b.y1*dispH, x2:b.x2*dispW, y2:b.y2*dispH}; }
     function px2n(x1,y1,x2,y2) {
@@ -943,7 +1029,6 @@ function initCanvasBbox() {
     }
 
     function syncPromptToGradio() {
-        const promptInput = document.getElementById('custom-prompt-input');
         if (promptInput) {
             setGradioValue('prompt-gradio-input', promptInput.value);
         }
@@ -1298,7 +1383,6 @@ function initCanvasBbox() {
         syncToGradio(); redraw(); hideStatus();
     });
 
-    const promptInput = document.getElementById('custom-prompt-input');
     if (promptInput) {
         promptInput.addEventListener('input', () => {
             syncPromptToGradio();
@@ -1366,7 +1450,35 @@ function initCanvasBbox() {
     window.__showLoaders = showLoaders;
     window.__hideLoaders = hideLoaders;
 
+    function validateBeforeRun() {
+        const promptVal = promptInput ? promptInput.value.trim() : '';
+        const hasImage = !!baseImg;
+        const hasBoxes = boxes.length > 0;
+
+        if (!hasImage && !promptVal && !hasBoxes) {
+            showToast('Please upload an image, draw boxes, and enter a prompt', 'error');
+            flashPromptError();
+            return false;
+        }
+        if (!hasImage) {
+            showToast('Please upload an image first', 'error');
+            return false;
+        }
+        if (!hasBoxes) {
+            showToast('Please draw at least one bounding box on the image', 'error');
+            return false;
+        }
+        if (!promptVal) {
+            showToast('Please enter an edit prompt', 'warning');
+            flashPromptError();
+            return false;
+        }
+        return true;
+    }
+
     window.__clickGradioRunBtn = function() {
+        if (!validateBeforeRun()) return;
+
         syncPromptToGradio();
         syncToGradio();
         showLoaders();
@@ -1511,7 +1623,7 @@ watchDimensions();
 
 DOWNLOAD_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16l-5-5h3V4h4v7h3l-5 5z"/><path d="M20 18H4v2h16v-2z"/></svg>'
 
-with gr.Blocks() as demo:
+with gr.Blocks(css=css) as demo:
 
     hidden_image_b64 = gr.Textbox(
         elem_id="hidden-image-b64",
@@ -1662,7 +1774,7 @@ with gr.Blocks() as demo:
                     <div class="panel-card-title">Edit Instruction</div>
                     <div class="panel-card-body">
                         <label class="modern-label" for="custom-prompt-input">Prompt</label>
-                        <textarea id="custom-prompt-input" class="modern-textarea" rows="2" placeholder="Describe the edit...">Remove the red highlighted object from the scene</textarea>
+                        <textarea id="custom-prompt-input" class="modern-textarea" rows="2" placeholder="Describe the edit...">{DEFAULT_PROMPT}</textarea>
                     </div>
                 </div>
 
@@ -1779,6 +1891,5 @@ with gr.Blocks() as demo:
 
 if __name__ == "__main__":
     demo.launch(
-        css=css,
         mcp_server=True, ssr_mode=False, show_error=True
     )
